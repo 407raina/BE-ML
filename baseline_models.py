@@ -1,8 +1,8 @@
 """
-Phase 2 - Network Intrusion Detection (NSL-KDD)
+baseline_models.py - Network Intrusion Detection (NSL-KDD)
 Baseline models: SVM and Naive Bayes, evaluated WITHOUT any imbalance handling.
 Goal of this phase: establish a baseline and clearly SEE how imbalance hurts
-the rare classes (R2L, U2R) before we fix it in Phase 3.
+the rare classes (R2L, U2R) before we fix it in imbalance_handling.py.
 """
 
 import pandas as pd
@@ -12,7 +12,9 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.metrics import classification_report, confusion_matrix
 import time
 
-# 1. Load the processed data from Phase 1
+# ---------------------------------------------------------------
+# 1. Load the processed data from preprocessing.py
+# ---------------------------------------------------------------
 train_df = pd.read_csv("processed_train.csv")
 test_df = pd.read_csv("processed_test.csv")
 
@@ -25,7 +27,12 @@ y_test = test_df[target_col]
 print("X_train shape:", X_train.shape)
 print("X_test shape:", X_test.shape)
 
+# ---------------------------------------------------------------
 # 2. Baseline model 1: Naive Bayes
+#    Fast to train, good baseline, often struggles when features
+#    aren't independent (which network features often aren't) -
+#    that's expected and worth noting, not a bug.
+# ---------------------------------------------------------------
 print("\n" + "=" * 60)
 print("Training Naive Bayes...")
 start = time.time()
@@ -37,7 +44,14 @@ print(f"Naive Bayes trained in {time.time() - start:.1f}s")
 print("\n--- Naive Bayes: Classification Report ---")
 print(classification_report(y_test, nb_preds, zero_division=0))
 
+# ---------------------------------------------------------------
 # 3. Baseline model 2: SVM
+#    SVC (RBF kernel) doesn't scale well to 126k rows - training
+#    time grows fast with dataset size. For this BASELINE we train
+#    on a stratified sample of the training data to keep runtime
+#    reasonable; the ensemble in ensemble.py can revisit this tradeoff
+#    (e.g. LinearSVC, or a larger sample) if needed.
+# ---------------------------------------------------------------
 SVM_SAMPLE_SIZE = 20000
 sample_idx = (
     train_df.groupby(target_col, group_keys=False)
@@ -61,7 +75,9 @@ print(f"SVM trained in {time.time() - start:.1f}s")
 print("\n--- SVM: Classification Report ---")
 print(classification_report(y_test, svm_preds, zero_division=0))
 
-# 4. Confusion matrices
+# ---------------------------------------------------------------
+# 4. Confusion matrices - see exactly WHERE each model gets confused
+# ---------------------------------------------------------------
 labels_order = ["Normal", "DoS", "Probe", "R2L", "U2R"]
 
 print("\n--- Naive Bayes Confusion Matrix ---")
@@ -72,11 +88,13 @@ print("\n--- SVM Confusion Matrix ---")
 print("Rows = actual, Columns = predicted, order:", labels_order)
 print(confusion_matrix(y_test, svm_preds, labels=labels_order))
 
-# 5. Save predictions 
+# ---------------------------------------------------------------
+# 5. Save predictions for later comparison (imbalance_handling.py / ensemble.py)
+# ---------------------------------------------------------------
 results_df = pd.DataFrame({
     "actual": y_test,
     "nb_pred": nb_preds,
     "svm_pred": svm_preds,
 })
-results_df.to_csv("phase2_baseline_predictions.csv", index=False)
-print("\nSaved phase2_baseline_predictions.csv")
+results_df.to_csv("baseline_predictions.csv", index=False)
+print("\nSaved baseline_predictions.csv")
