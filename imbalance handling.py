@@ -1,8 +1,8 @@
 """
-Phase 3 - Network Intrusion Detection (NSL-KDD)
+imbalance_handling.py - Network Intrusion Detection (NSL-KDD)
 Handling class imbalance with SMOTE and class_weight='balanced',
-then comparing against the Phase 2 no-imbalance-handling baseline
-(especially for R2L and U2R, which Phase 2 handled very poorly).
+then comparing against the baseline_models.py no-imbalance-handling baseline
+(especially for R2L and U2R, which baseline_models.py handled very poorly).
 """
 
 import pandas as pd
@@ -14,7 +14,7 @@ from imblearn.over_sampling import SMOTE
 import time
 
 # ---------------------------------------------------------------
-# 1. Load Phase 1's processed data
+# 1. Load preprocessing.py's processed data
 # ---------------------------------------------------------------
 train_df = pd.read_csv("processed_train.csv")
 test_df = pd.read_csv("processed_test.csv")
@@ -69,7 +69,7 @@ print(classification_report(y_test, nb_smote_preds, zero_division=0))
 
 # ---------------------------------------------------------------
 # 4. Retrain SVM on SMOTE-balanced data
-#    Same stratified-sample approach as Phase 2, but now sampling
+#    Same stratified-sample approach as baseline_models.py, but now sampling
 #    from the SMOTE-balanced set (so rare classes are properly
 #    represented in the sample, not just proportionally rare).
 # ---------------------------------------------------------------
@@ -108,8 +108,8 @@ print(classification_report(y_test, svm_smote_preds, zero_division=0))
 print("\n" + "=" * 60)
 print("Training SVM with class_weight='balanced' (no SMOTE)...")
 
-# use the same stratified sample from Phase 2's original (non-SMOTE) data
-# for a fair comparison - re-derive it the same way Phase 2 did
+# use the same stratified sample from baseline_models.py's original (non-SMOTE) data
+# for a fair comparison - re-derive it the same way baseline_models.py did
 sample_idx_orig = (
     train_df.groupby(target_col, group_keys=False)
     .apply(lambda g: g.sample(
@@ -139,13 +139,13 @@ print("\n" + "=" * 60)
 print("SUMMARY: R2L and U2R performance across all approaches")
 print("=" * 60)
 
-# Recorded directly from Phase 2's actual output (this script runs standalone,
-# so we hardcode the earlier result here rather than re-run Phase 2 every time)
+# Recorded directly from baseline_models.py's actual output (this script runs standalone,
+# so we hardcode the earlier result here rather than re-run baseline_models.py every time)
 phase2_baseline = {"R2L": {"precision": 0.99, "recall": 0.09, "f1-score": 0.16},
                     "U2R": {"precision": 0.00, "recall": 0.00, "f1-score": 0.00}}
 
 approaches = {
-    "SVM - Phase 2 baseline (no imbalance handling)": phase2_baseline,
+    "SVM - baseline_models.py baseline (no imbalance handling)": phase2_baseline,
     "SVM + SMOTE": {"R2L": get_metrics(y_test, svm_smote_preds, "R2L"),
                      "U2R": get_metrics(y_test, svm_smote_preds, "U2R")},
     "SVM + class_weight='balanced'": {"R2L": get_metrics(y_test, svm_weighted_preds, "R2L"),
