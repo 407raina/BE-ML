@@ -1,5 +1,5 @@
 """
-Phase 1 - Network Intrusion Detection (NSL-KDD)
+preprocessing.py - Network Intrusion Detection (NSL-KDD)
 Data loading, exploration, attack-category mapping, encoding, scaling.
 """
 
@@ -7,7 +7,10 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 
+# ---------------------------------------------------------------
 # 1. Load data
+# ---------------------------------------------------------------
+# NSL-KDD has 41 features + 1 label column + 1 "difficulty" column, no header.
 columns = [
     "duration", "protocol_type", "service", "flag", "src_bytes", "dst_bytes",
     "land", "wrong_fragment", "urgent", "hot", "num_failed_logins", "logged_in",
@@ -21,20 +24,26 @@ columns = [
     "dst_host_rerror_rate", "dst_host_srv_rerror_rate", "label", "difficulty"
 ]
 
-train_df = pd.read_csv("KDDTrain+.txt", names=columns)
-test_df = pd.read_csv("KDDTest+.txt", names=columns)
+train_df = pd.read_csv("../data/KDDTrain+.txt", names=columns)
+test_df = pd.read_csv("../data/KDDTest+.txt", names=columns)
 
 print("Train shape:", train_df.shape)
 print("Test shape:", test_df.shape)
 
+# drop the "difficulty" column - not a feature, just metadata from the dataset creators
 train_df = train_df.drop(columns=["difficulty"])
 test_df = test_df.drop(columns=["difficulty"])
 
+# ---------------------------------------------------------------
 # 2. Basic exploration
+# ---------------------------------------------------------------
 print("\nRaw label distribution (train):")
 print(train_df["label"].value_counts().head(10))
 
-# 3. Map attack labels
+# ---------------------------------------------------------------
+# 3. Map ~20+ specific attack labels into 5 categories
+#    (Normal, DoS, Probe, R2L, U2R) - this is the standard NSL-KDD mapping
+# ---------------------------------------------------------------
 attack_mapping = {
     "normal": "Normal",
     # DoS
@@ -57,6 +66,7 @@ attack_mapping = {
 train_df["attack_category"] = train_df["label"].map(attack_mapping)
 test_df["attack_category"] = test_df["label"].map(attack_mapping)
 
+# Any label not in our mapping (rare, dataset-version-specific labels) -> mark Unknown
 train_df["attack_category"] = train_df["attack_category"].fillna("Unknown")
 test_df["attack_category"] = test_df["attack_category"].fillna("Unknown")
 
@@ -65,12 +75,17 @@ print(train_df["attack_category"].value_counts())
 print("\nMapped category distribution (test):")
 print(test_df["attack_category"].value_counts())
 
+# drop original fine-grained label, keep the 5-category label
 train_df = train_df.drop(columns=["label"])
 test_df = test_df.drop(columns=["label"])
 
-# 4. Encode categorical columns
+# ---------------------------------------------------------------
+# 4. Encode categorical columns (protocol_type, service, flag)
+# ---------------------------------------------------------------
 categorical_cols = ["protocol_type", "service", "flag"]
 
+# Fit encoder on TRAIN only, then apply to both (avoids data leakage,
+# and handles service values in test not seen in train)
 encoder = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
 encoder.fit(train_df[categorical_cols])
 
@@ -79,7 +94,6 @@ train_encoded = pd.DataFrame(
     columns=encoder.get_feature_names_out(categorical_cols),
     index=train_df.index,
 )
-
 test_encoded = pd.DataFrame(
     encoder.transform(test_df[categorical_cols]),
     columns=encoder.get_feature_names_out(categorical_cols),
@@ -89,7 +103,9 @@ test_encoded = pd.DataFrame(
 train_df = pd.concat([train_df.drop(columns=categorical_cols), train_encoded], axis=1)
 test_df = pd.concat([test_df.drop(columns=categorical_cols), test_encoded], axis=1)
 
+# ---------------------------------------------------------------
 # 5. Scale numeric features
+# ---------------------------------------------------------------
 target_col = "attack_category"
 feature_cols = [c for c in train_df.columns if c != target_col]
 
@@ -97,11 +113,12 @@ scaler = StandardScaler()
 train_df[feature_cols] = scaler.fit_transform(train_df[feature_cols])
 test_df[feature_cols] = scaler.transform(test_df[feature_cols])
 
-# 6. Save processed data
+# ---------------------------------------------------------------
+# 6. Confirm final shape, save processed data for baseline_models.py
+# ---------------------------------------------------------------
 print("\nFinal processed train shape:", train_df.shape)
 print("Final processed test shape:", test_df.shape)
 
 train_df.to_csv("processed_train.csv", index=False)
 test_df.to_csv("processed_test.csv", index=False)
-
-print("\nSaved processed_train.csv and processed_test.csv - ready for Phase 2 (modeling).")
+print("\nSaved processed_train.csv and processed_test.csv - ready for baseline_models.py (modeling).")
