@@ -1,5 +1,6 @@
 """
 app.py - Network Intrusion Detection Project Dashboard (Streamlit)
+
 Run with:
     pip install streamlit pandas numpy matplotlib
     streamlit run app.py
@@ -111,16 +112,54 @@ with tab_a1:
     r2l_f1 = [0.16, 0.27, 0.21, 0.27, 0.02, 0.21]
     u2r_f1 = [0.00, 0.11, 0.22, 0.11, 0.31, 0.22]
 
+    metrics_a1 = {"Accuracy": accuracy, "R2L F1-score": r2l_f1, "U2R F1-score": u2r_f1}
+
+    # ---- Metric + chart-type selector (this is the "click a column to
+    # see its chart" behavior - Streamlit tables can't be made clickable
+    # directly, so a selector above the chart is the practical equivalent) ----
+    ctrl1, ctrl2 = st.columns([2, 1])
+    with ctrl1:
+        metric_choice = st.radio(
+            "Metric to visualize",
+            ["Accuracy", "R2L F1-score", "U2R F1-score", "All metrics"],
+            horizontal=True,
+            key="a1_metric",
+        )
+    with ctrl2:
+        chart_type = st.selectbox("Chart type", ["Bar", "Line"], key="a1_chart_type")
+
     fig, ax = plt.subplots(figsize=(9, 4))
     x = np.arange(len(stages))
-    width = 0.35
-    ax.bar(x - width / 2, u2r_f1, width, label="U2R F1-score", color=ALERT)
-    ax.bar(x + width / 2, r2l_f1, width, label="R2L F1-score", color=ACCENT)
+
+    if metric_choice == "All metrics":
+        width = 0.27
+        colors = {"Accuracy": NEUTRAL, "R2L F1-score": ACCENT, "U2R F1-score": ALERT}
+        if chart_type == "Bar":
+            for i, (name, vals) in enumerate(metrics_a1.items()):
+                offset = (i - 1) * width
+                ax.bar(x + offset, vals, width, label=name, color=colors[name])
+        else:
+            for name, vals in metrics_a1.items():
+                ax.plot(x, vals, marker="o", label=name, color=colors[name])
+        ax.set_title("All metrics across imbalance-handling stages")
+    else:
+        vals = metrics_a1[metric_choice]
+        color = ALERT if "U2R" in metric_choice else (ACCENT if "R2L" in metric_choice else NEUTRAL)
+        if chart_type == "Bar":
+            ax.bar(x, vals, 0.5, color=color)
+            for i, v in enumerate(vals):
+                ax.text(i, v + 0.01, f"{v:.2f}", ha="center", fontsize=8)
+        else:
+            ax.plot(x, vals, marker="o", color=color, linewidth=2)
+            for i, v in enumerate(vals):
+                ax.text(i, v + 0.015, f"{v:.2f}", ha="center", fontsize=8)
+        ax.set_title(f"{metric_choice} across imbalance-handling stages")
+
     ax.set_xticks(x)
     ax.set_xticklabels(stages, rotation=20, ha="right", fontsize=8)
-    ax.set_ylabel("F1-score")
-    ax.set_title("Rare-class F1-score across imbalance-handling stages")
-    ax.legend()
+    ax.set_ylabel("Score")
+    ax.set_ylim(0, 1.0 if metric_choice == "Accuracy" or metric_choice == "All metrics" else 0.4)
+    ax.legend() if metric_choice == "All metrics" else None
     ax.spines[["top", "right"]].set_visible(False)
     st.pyplot(fig)
 
@@ -138,6 +177,7 @@ with tab_a1:
             "Mathematically equals SVM alone",
         ],
     })
+    st.caption("Table shown for reference — use the metric selector above the chart to switch views (Streamlit tables don't support clickable headers).")
     st.dataframe(df1, use_container_width=True, hide_index=True)
 
     st.warning(
@@ -167,24 +207,46 @@ with tab_a2:
     )
 
     classifiers = ["Naive Bayes", "SVM", "Ensemble (SVM-NB)"]
-    paper_acc = [0.900, 0.910, 0.935]
-    our_acc = [0.467, 0.964, 0.966]
+
+    # Full metric set from the actual ensemble_replication.py run
+    paper_metrics = {
+        "Accuracy":  [0.900, 0.910, 0.935],
+        "Precision": [0.820, 0.870, 0.928],
+        "Recall":    [0.890, 0.920, 0.940],
+        "F1 Score":  [0.830, 0.870, 0.930],
+    }
+    our_metrics = {
+        "Accuracy":  [0.467, 0.964, 0.966],
+        "Precision": [0.758, 0.964, 0.966],
+        "Recall":    [0.467, 0.964, 0.966],
+        "F1 Score":  [0.419, 0.964, 0.966],
+    }
+
+    metric_choice2 = st.radio(
+        "Metric to visualize",
+        ["Accuracy", "Precision", "Recall", "F1 Score"],
+        horizontal=True,
+        key="a2_metric",
+    )
+
+    paper_vals = paper_metrics[metric_choice2]
+    our_vals = our_metrics[metric_choice2]
 
     fig2, ax2 = plt.subplots(figsize=(9, 4))
     x = np.arange(len(classifiers))
     width = 0.35
-    ax2.bar(x - width / 2, paper_acc, width, label="Paper (KDD99)", color=NEUTRAL)
-    ax2.bar(x + width / 2, our_acc, width, label="Our Replication (NSL-KDD)", color=ACCENT)
+    ax2.bar(x - width / 2, paper_vals, width, label="Paper (KDD99)", color=NEUTRAL)
+    ax2.bar(x + width / 2, our_vals, width, label="Our Replication (NSL-KDD)", color=ACCENT)
     ax2.set_xticks(x)
     ax2.set_xticklabels(classifiers)
-    ax2.set_ylabel("Accuracy")
+    ax2.set_ylabel(metric_choice2)
     ax2.set_ylim(0, 1.05)
-    ax2.set_title("Accuracy: paper vs. our NSL-KDD replication")
+    ax2.set_title(f"{metric_choice2}: paper vs. our NSL-KDD replication")
     ax2.legend()
     ax2.spines[["top", "right"]].set_visible(False)
-    for i, v in enumerate(paper_acc):
+    for i, v in enumerate(paper_vals):
         ax2.text(i - width / 2, v + 0.02, f"{v:.2f}", ha="center", fontsize=8)
-    for i, v in enumerate(our_acc):
+    for i, v in enumerate(our_vals):
         ax2.text(i + width / 2, v + 0.02, f"{v:.2f}", ha="center", fontsize=8)
     st.pyplot(fig2)
 
