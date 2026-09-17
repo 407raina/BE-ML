@@ -1,5 +1,4 @@
-processed_train.csv
-processed_test.csv
+*.csv
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
